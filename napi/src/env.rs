@@ -510,6 +510,37 @@ impl Env {
   }
 
   #[inline]
+  /// This API is almost the same with `create_function`
+  ///
+  /// The only different is you can provide context for `callback`, and get it back via `CallContext::context_ref`
+  pub fn create_function_with_context<T>(
+    &self,
+    name: &str,
+    context: T,
+    callback: Callback,
+  ) -> Result<(JsFunction, &mut T)> {
+    let mut raw_result = ptr::null_mut();
+    let len = name.len();
+    let name = CString::new(name)?;
+    let global_context = Box::leak(Box::new(context));
+    check_status!(unsafe {
+      sys::napi_create_function(
+        self.0,
+        name.as_ptr(),
+        len,
+        Some(callback),
+        global_context as *mut T as *mut c_void,
+        &mut raw_result,
+      )
+    })?;
+
+    Ok((
+      unsafe { JsFunction::from_raw_unchecked(self.0, raw_result) },
+      global_context,
+    ))
+  }
+
+  #[inline]
   /// This API retrieves a napi_extended_error_info structure with information about the last error that occurred.
   ///
   /// The content of the napi_extended_error_info returned is only valid up until an n-api function is called on the same env.
@@ -631,6 +662,42 @@ impl Env {
     })?;
 
     Ok(unsafe { JsFunction::from_raw_unchecked(self.0, raw_result) })
+  }
+
+  #[inline]
+  /// Create JavaScript class with `Context` which will be passed to constructor
+  pub fn define_class_with_context<T>(
+    &self,
+    name: &str,
+    constructor_cb: Callback,
+    properties: &[Property],
+    context: T,
+  ) -> Result<(JsFunction, &mut T)> {
+    let mut raw_result = ptr::null_mut();
+    let raw_properties = properties
+      .iter()
+      .map(|prop| prop.raw())
+      .collect::<Vec<sys::napi_property_descriptor>>();
+
+    let global_context = Box::leak(Box::new(context));
+
+    check_status!(unsafe {
+      sys::napi_define_class(
+        self.0,
+        name.as_ptr() as *const c_char,
+        name.len(),
+        Some(constructor_cb),
+        global_context as *mut T as *mut c_void,
+        raw_properties.len(),
+        raw_properties.as_ptr(),
+        &mut raw_result,
+      )
+    })?;
+
+    Ok((
+      unsafe { JsFunction::from_raw_unchecked(self.0, raw_result) },
+      global_context,
+    ))
   }
 
   #[inline]
