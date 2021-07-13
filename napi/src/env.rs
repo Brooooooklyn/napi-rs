@@ -1060,7 +1060,6 @@ impl Env {
   }
 
   #[cfg(feature = "napi3")]
-  #[inline]
   pub fn add_env_cleanup_hook<T, F>(
     &mut self,
     cleanup_data: T,
@@ -1152,7 +1151,6 @@ impl Env {
   }
 
   #[cfg(feature = "napi6")]
-  #[inline]
   /// This API associates data with the currently running Agent. data can later be retrieved using `Env::get_instance_data()`.
   ///
   /// Any existing data associated with the currently running Agent which was set by means of a previous call to `Env::set_instance_data()` will be overwritten.
@@ -1312,7 +1310,6 @@ impl Env {
   /// }
   ///
   #[cfg(feature = "serde-json")]
-  #[inline]
   pub fn from_js_value<T, V>(&self, value: V) -> Result<T>
   where
     T: DeserializeOwned + ?Sized,
@@ -1369,6 +1366,8 @@ unsafe extern "C" fn raw_finalize<T>(
   finalize_hint: *mut c_void,
 ) {
   let tagged_object = finalize_data as *mut TaggedObject<T>;
+
+  println!("External finalize: {}", tagged_object.is_null());
   Box::from_raw(tagged_object);
   if !finalize_hint.is_null() {
     let size_hint = *Box::from_raw(finalize_hint as *mut Option<i64>);
@@ -1393,6 +1392,10 @@ unsafe extern "C" fn set_instance_finalize_callback<T, Hint, F>(
   Hint: 'static,
   F: FnOnce(FinalizeContext<T, Hint>),
 {
+  println!(
+    "Finalize data in instance finalize callback {}",
+    finalize_data.is_null()
+  );
   let (value, callback) = *Box::from_raw(finalize_data as *mut (TaggedObject<T>, F));
   let hint = *Box::from_raw(finalize_hint as *mut Hint);
   let env = Env::from_raw(raw_env);

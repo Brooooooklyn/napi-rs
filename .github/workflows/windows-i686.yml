@@ -14,6 +14,11 @@ jobs:
     name: stable - windows-latest - i686 - node@14
     runs-on: windows-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [1.51.0, 1.52.0, 1.52.1, 1.53.0, nightly]
+
     steps:
       - uses: actions/checkout@v2
 
@@ -40,7 +45,7 @@ jobs:
       - name: Install
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.51.0
+          toolchain: ${{ matrix.toolchain }}
           profile: minimal
           override: true
 
@@ -64,16 +69,10 @@ jobs:
           path: ~/.cargo/git
           key: stable-windows-i686-node@lts-cargo-index-trimmed-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Check build
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all --bins --examples --tests --target i686-pc-windows-msvc -vvv
-
       - name: Build Tests
         run: |
           yarn --cwd ./test_module build-i686
-          yarn test
+          yarn test --verbose
         env:
           RUST_BACKTRACE: 1
 
